@@ -1,0 +1,16 @@
+# Ignore Python virtual environments
+backend_app_folder/venv/
+
+# Ignore large model files
+backend_app_folder/pretrained_models/4stems/model.data-00000-of-00001
+backend_app_folder/pretrained_models/5stems/model.data-00000-of-00001
+
+# Ignore separated output and uploads
+backend_app_folder/separated/
+backend_app_folder/uploads/
+
+# Ignore system files
+.DS_Store
+*.log
+*.pyc
+__pycache__/
