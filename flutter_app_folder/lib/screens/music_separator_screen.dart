@@ -188,7 +188,7 @@ class MusicSeparatorScreenState extends State<MusicSeparatorScreen> {
     });
 
     try {
-      var request = http.MultipartRequest('POST', Uri.parse('http://127.0.0.1:8000/upload'));
+      var request = http.MultipartRequest('POST', Uri.parse('https://rohith069-music-separator.hf.space/upload'));
       request.files.add(await http.MultipartFile.fromPath('file', filePath));
       var response = await request.send();
       
@@ -226,7 +226,7 @@ class MusicSeparatorScreenState extends State<MusicSeparatorScreen> {
       if (!mounted) return;
       
       try {
-        var response = await http.get(Uri.parse('http://127.0.0.1:8000/status/$_taskId'));
+        var response = await http.get(Uri.parse('https://rohith069-music-separator.hf.space/status/$_taskId'));
         if (response.statusCode == 200) {
           var data = json.decode(response.body);
           if (data['status'] == 'completed') {
@@ -253,6 +253,7 @@ class MusicSeparatorScreenState extends State<MusicSeparatorScreen> {
   Future<void> _downloadStemsForPlayback() async {
     setState(() {
       _statusMessage = "Downloading stems...";
+      _progress = 0;
     });
     
     try {
@@ -260,11 +261,8 @@ class MusicSeparatorScreenState extends State<MusicSeparatorScreen> {
       _vocalsPath = '${tempDir.path}/${_taskId}_vocals.mp3';
       _musicPath = '${tempDir.path}/${_taskId}_music.mp3';
       
-      var vocalsResp = await http.get(Uri.parse('http://127.0.0.1:8000/download/$_taskId/vocals'));
-      File(_vocalsPath!).writeAsBytesSync(vocalsResp.bodyBytes);
-      
-      var musicResp = await http.get(Uri.parse('http://127.0.0.1:8000/download/$_taskId/accompaniment'));
-      File(_musicPath!).writeAsBytesSync(musicResp.bodyBytes);
+      await _downloadWithProgress('https://rohith069-music-separator.hf.space/download/$_taskId/vocals', _vocalsPath!, 0, 50);
+      await _downloadWithProgress('https://rohith069-music-separator.hf.space/download/$_taskId/accompaniment', _musicPath!, 50, 50);
       
       await _vocalsPlayer.setFilePath(_vocalsPath!);
       await _musicPlayer.setFilePath(_musicPath!);
@@ -278,6 +276,32 @@ class MusicSeparatorScreenState extends State<MusicSeparatorScreen> {
         _currentState = SeparatorState.selectSong;
         _statusMessage = "Failed to download stems.";
       });
+    }
+  }
+
+  Future<void> _downloadWithProgress(String url, String savePath, int offset, int span) async {
+    final client = http.Client();
+    try {
+      final request = http.Request('GET', Uri.parse(url));
+      final response = await client.send(request);
+      final total = response.contentLength ?? 0;
+      
+      int downloaded = 0;
+      final file = File(savePath);
+      final sink = file.openWrite();
+      
+      await for (final chunk in response.stream) {
+        sink.add(chunk);
+        downloaded += chunk.length;
+        if (total > 0 && mounted) {
+          setState(() {
+            _progress = offset + ((downloaded / total) * span).toInt();
+          });
+        }
+      }
+      await sink.close();
+    } finally {
+      client.close();
     }
   }
 
@@ -339,7 +363,7 @@ class MusicSeparatorScreenState extends State<MusicSeparatorScreen> {
                         child: Text(
                           '$_progress%',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: Colors.black,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                             fontFamily: 'Helvetica',
