@@ -67,6 +67,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final GlobalKey<FavoritesScreenState> _favoritesKey = GlobalKey<FavoritesScreenState>();
   final GlobalKey<PlaylistsScreenState> _playlistsKey = GlobalKey<PlaylistsScreenState>();
   final GlobalKey<LocalSongsScreenState> _localSongsKey = GlobalKey<LocalSongsScreenState>();
+  final GlobalKey<MusicSeparatorScreenState> _separatorKey = GlobalKey<MusicSeparatorScreenState>();
 
   final ScrollController _menuScrollController = ScrollController();
 
@@ -945,6 +946,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     } else if (_currentScreen == IpodScreenState.localSongs) {
       Vibration.vibrate(duration: 15);
       _localSongsKey.currentState?.moveSelection(delta);
+    } else if (_currentScreen == IpodScreenState.musicSeparator) {
+      Vibration.vibrate(duration: 15);
+      _separatorKey.currentState?.moveSelection(delta);
     } else if (_currentScreen == IpodScreenState.home) {
       if (delta > 0) {
         _skipNext();
@@ -1148,7 +1152,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         onTrackSelected: _playTrackNow,
       );
     } else if (_currentScreen == IpodScreenState.musicSeparator) {
-      return MusicSeparatorScreen(isDarkMode: _isDarkMode);
+      return MusicSeparatorScreen(
+        key: _separatorKey,
+        isDarkMode: _isDarkMode,
+      );
     } else if (_currentScreen == IpodScreenState.home) {
       return _buildNowPlayingScreen();
     } else if (_currentScreen == IpodScreenState.localSongs) {
@@ -1584,6 +1591,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                               _playlistsKey.currentState?.handleSelect();
                             } else if (_currentScreen == IpodScreenState.localSongs) {
                               _localSongsKey.currentState?.handleSelect();
+                            } else if (_currentScreen == IpodScreenState.musicSeparator) {
+                              _separatorKey.currentState?.handleCenterClick();
                             }
                           },
                           onLongPress: () async {

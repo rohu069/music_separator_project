@@ -1,0 +1,17 @@
+# Virtual Environments
+venv/
+env/
+.env
+
+# Python compilation files
+__pycache__/
+*.pyc
+
+# Local Data / Output
+uploads/
+output/
+.cache/
+
+# IDE files
+.vscode/
+.idea/
