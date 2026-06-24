@@ -5,9 +5,10 @@ import '../services/audius_service.dart';
 
 class PlaylistsScreen extends StatefulWidget {
   final bool isDarkMode;
-  final void Function(Track, [String?]) onTrackSelected;
+  final bool isLocalMode;
+  final void Function(List<Track>, int, [String?]) onTrackSelected;
   
-  const PlaylistsScreen({super.key, required this.isDarkMode, required this.onTrackSelected});
+  const PlaylistsScreen({super.key, required this.isDarkMode, required this.isLocalMode, required this.onTrackSelected});
 
   @override
   State<PlaylistsScreen> createState() => PlaylistsScreenState();
@@ -39,11 +40,16 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
           if (value is List) {
             for (var item in value) {
               if (item is String) {
-                tracks.add(Track.fromLocalJson(json.decode(item)));
+                final track = Track.fromLocalJson(json.decode(item));
+                if (track.isLocal == widget.isLocalMode) {
+                  tracks.add(track);
+                }
               }
             }
           }
-          loadedData[key] = tracks;
+          if (tracks.isNotEmpty) {
+            loadedData[key] = tracks;
+          }
         });
       } catch (e) {
         debugPrint('Error parsing playlists data: $e');
@@ -60,7 +66,7 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
 
   void _scrollToSelection() {
     if (_scrollController.hasClients) {
-      double itemHeight = 60.0; 
+      double itemHeight = 44.0; 
       double viewportHeight = _scrollController.position.viewportDimension;
       double currentScroll = _scrollController.offset;
       double itemTop = _selectedIndex * itemHeight;
@@ -106,7 +112,7 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
           _selectedIndex = 0;
         });
       } else {
-        widget.onTrackSelected(_playlists[_selectedPlaylistName!]![_selectedIndex - 1], _selectedPlaylistName);
+        widget.onTrackSelected(_playlists[_selectedPlaylistName!]!, _selectedIndex - 1, _selectedPlaylistName);
       }
     }
   }
@@ -168,6 +174,7 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
         Expanded(
           child: ListView.builder(
             controller: _scrollController,
+            physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             itemCount: itemCount,
             itemBuilder: (context, index) {
@@ -175,14 +182,17 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
               
               if (!isRoot && index == 0) {
                 return Container(
-                  height: 60.0,
+                  height: 44.0,
                   decoration: BoxDecoration(
-                    color: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
                     border: Border(bottom: BorderSide(color: widget.isDarkMode ? Colors.white12 : Colors.black12)),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    leading: Icon(Icons.arrow_back_ios, size: 16, color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white70 : Colors.black87)),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      tileColor: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     title: Text(
                       'Back',
                       style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
@@ -192,61 +202,64 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
                       handleSelect();
                     },
                   ),
+                  ),
                 );
               }
 
               if (isRoot) {
                 String playlistName = keys[index];
                 return Container(
-                  height: 60.0,
+                  height: 44.0,
                   decoration: BoxDecoration(
-                    color: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
                     border: Border(bottom: BorderSide(color: widget.isDarkMode ? Colors.white12 : Colors.black12)),
                   ),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                    leading: Icon(Icons.folder, color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white70 : Colors.black87)),
+                  child: Material(
+                    type: MaterialType.transparency,
+                    child: ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      tileColor: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                     title: Text(
                       playlistName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
                     ),
-                    trailing: Icon(Icons.chevron_right, color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white30 : Colors.black38)),
+                    trailing: Icon(Icons.chevron_right, size: 16, color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white30 : Colors.black38)),
                     onTap: () {
                       setState(() => _selectedIndex = index);
                       handleSelect();
                     },
+                  ),
                   ),
                 );
               }
 
               final track = _playlists[_selectedPlaylistName!]![index - 1];
               return Container(
-                height: 60.0,
+                height: 44.0,
                 decoration: BoxDecoration(
-                  color: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
                   border: Border(bottom: BorderSide(color: widget.isDarkMode ? Colors.white12 : Colors.black12)),
                 ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                  leading: Icon(Icons.music_note, color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white70 : Colors.black87)),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: ListTile(
+                    dense: true,
+                    visualDensity: VisualDensity.compact,
+                    tileColor: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   title: Text(
                     track.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
                   ),
-                  subtitle: Text(
-                    track.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: isSelected ? Colors.white70 : (widget.isDarkMode ? Colors.white54 : Colors.black54), fontFamily: 'Helvetica', fontSize: 12),
-                  ),
                   onTap: () {
                     setState(() => _selectedIndex = index);
                     handleSelect();
                   },
+                ),
                 ),
               );
             },

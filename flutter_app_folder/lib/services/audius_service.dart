@@ -7,12 +7,16 @@ class Track {
   final String title;
   final String artist;
   final String? artworkUrl;
+  final bool isLocal;
+  final String? localPath;
 
   Track({
     required this.id,
     required this.title,
     required this.artist,
     this.artworkUrl,
+    this.isLocal = false,
+    this.localPath,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) {
@@ -35,6 +39,8 @@ class Track {
       'title': title,
       'artist': artist,
       'artworkUrl': artworkUrl,
+      'isLocal': isLocal,
+      'localPath': localPath,
     };
   }
   
@@ -44,6 +50,8 @@ class Track {
       title: json['title'],
       artist: json['artist'],
       artworkUrl: json['artworkUrl'],
+      isLocal: json['isLocal'] ?? false,
+      localPath: json['localPath'],
     );
   }
 }
@@ -56,14 +64,21 @@ class AudiusService {
     return _hostNode;
   }
 
-  Future<List<Track>> getTrendingTracks() async {
+  static List<Track>? _cachedTrendingTracks;
+
+  Future<List<Track>> getTrendingTracks({bool forceRefresh = false}) async {
+    if (_cachedTrendingTracks != null && !forceRefresh) {
+      return _cachedTrendingTracks!;
+    }
+
     final host = await getHostNode();
     try {
       final response = await http.get(Uri.parse('$host/v1/tracks/trending?app_name=$appName'));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         List<dynamic> tracks = data['data'] ?? [];
-        return tracks.map((t) => Track.fromJson(t)).toList();
+        _cachedTrendingTracks = tracks.map((t) => Track.fromJson(t)).toList();
+        return _cachedTrendingTracks!;
       }
     } catch (e) {
       debugPrint('Error fetching trending track: $e');

@@ -1,59 +1,44 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:on_audio_query/on_audio_query.dart';
+import '../services/local_audio_service.dart';
 import '../services/audius_service.dart';
 
-class FavoritesScreen extends StatefulWidget {
+class LocalSongsScreen extends StatefulWidget {
   final bool isDarkMode;
-  final bool isLocalMode;
   final void Function(List<Track>, int, [String?]) onTrackSelected;
-  
-  const FavoritesScreen({super.key, required this.isDarkMode, required this.isLocalMode, required this.onTrackSelected});
+  const LocalSongsScreen({super.key, required this.isDarkMode, required this.onTrackSelected});
 
   @override
-  State<FavoritesScreen> createState() => FavoritesScreenState();
+  State<LocalSongsScreen> createState() => LocalSongsScreenState();
 }
 
-class FavoritesScreenState extends State<FavoritesScreen> {
-  List<Track> _favorites = [];
+class LocalSongsScreenState extends State<LocalSongsScreen> {
+  final LocalAudioService _audioService = LocalAudioService();
+  List<SongModel> _songs = [];
   bool _isLoading = true;
+  
   int _selectedIndex = 0;
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _loadFavorites();
+    _fetchSongs();
   }
 
-  Future<void> _loadFavorites() async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> favsJson = prefs.getStringList('favorites_list') ?? [];
-    
-    List<Track> loadedTracks = [];
-    for (String jsonStr in favsJson) {
-      try {
-        final Map<String, dynamic> trackMap = json.decode(jsonStr);
-        final track = Track.fromLocalJson(trackMap);
-        if (track.isLocal == widget.isLocalMode) {
-          loadedTracks.add(track);
-        }
-      } catch (e) {
-        debugPrint('Error parsing favorite track: $e');
-      }
-    }
-
+  Future<void> _fetchSongs() async {
+    List<SongModel> songs = await _audioService.getSongs();
     if (mounted) {
       setState(() {
-        _favorites = loadedTracks;
+        _songs = songs;
         _isLoading = false;
       });
     }
   }
 
   void _scrollToSelection() {
-    if (_scrollController.hasClients) {
-      double itemHeight = 44.0; 
+    if (_scrollController.hasClients && _songs.isNotEmpty) {
+      double itemHeight = 60.0; 
       double viewportHeight = _scrollController.position.viewportDimension;
       double currentScroll = _scrollController.offset;
       double itemTop = _selectedIndex * itemHeight;
@@ -68,19 +53,26 @@ class FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   void moveSelection(int delta) {
-    if (_favorites.isEmpty) return;
+    if (_songs.isEmpty) return;
     setState(() {
-      _selectedIndex = (_selectedIndex + delta) % _favorites.length;
+      _selectedIndex = (_selectedIndex + delta) % _songs.length;
       if (_selectedIndex < 0) {
-        _selectedIndex += _favorites.length;
+        _selectedIndex += _songs.length;
       }
       _scrollToSelection();
     });
   }
 
   void handleSelect() {
-    if (_favorites.isNotEmpty) {
-      widget.onTrackSelected(_favorites, _selectedIndex, 'Favorites');
+    if (_songs.isNotEmpty) {
+      final tracks = _songs.map((song) => Track(
+        id: song.id.toString(),
+        title: song.title,
+        artist: song.artist ?? 'Unknown Artist',
+        isLocal: true,
+        localPath: song.data,
+      )).toList();
+      widget.onTrackSelected(tracks, _selectedIndex, null);
     }
   }
 
@@ -96,10 +88,10 @@ class FavoritesScreenState extends State<FavoritesScreen> {
       return const Center(child: CircularProgressIndicator(color: Colors.grey));
     }
 
-    if (_favorites.isEmpty) {
+    if (_songs.isEmpty) {
       return Center(
         child: Text(
-          'No Favorites yet',
+          'No Local Songs',
           style: TextStyle(
             color: widget.isDarkMode ? Colors.white70 : Colors.black87,
             fontSize: 18,
@@ -124,7 +116,7 @@ class FavoritesScreenState extends State<FavoritesScreen> {
             border: Border(bottom: BorderSide(color: widget.isDarkMode ? Colors.black : Colors.black26)),
           ),
           child: Text(
-            'Favorites',
+            'Your Songs',
             textAlign: TextAlign.center,
             style: TextStyle(
               color: widget.isDarkMode ? Colors.white : Colors.black,
@@ -139,27 +131,52 @@ class FavoritesScreenState extends State<FavoritesScreen> {
             controller: _scrollController,
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
-            itemCount: _favorites.length,
+            itemCount: _songs.length,
             itemBuilder: (context, index) {
-              final track = _favorites[index];
+              final song = _songs[index];
               final isSelected = index == _selectedIndex;
+
               return Container(
-                height: 44.0,
+                height: 60.0,
                 decoration: BoxDecoration(
                   border: Border(bottom: BorderSide(color: widget.isDarkMode ? Colors.white12 : Colors.black12)),
                 ),
                 child: Material(
                   type: MaterialType.transparency,
                   child: ListTile(
-                    dense: true,
-                    visualDensity: VisualDensity.compact,
                     tileColor: isSelected ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) : null,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                    leading: QueryArtworkWidget(
+                      key: ValueKey(song.id),
+                      keepOldArtwork: true,
+                    id: song.id,
+                    type: ArtworkType.AUDIO,
+                    nullArtworkWidget: Icon(
+                      Icons.music_note, 
+                      color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white70 : Colors.black87), 
+                      size: 30
+                    ),
+                  ),
                   title: Text(
-                    track.title,
+                    song.title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), 
+                      fontFamily: 'Helvetica', 
+                      fontSize: 14, 
+                      fontWeight: FontWeight.bold
+                    ),
+                  ),
+                  subtitle: Text(
+                    song.artist ?? "Unknown Artist",
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white70 : (widget.isDarkMode ? Colors.white54 : Colors.black54), 
+                      fontFamily: 'Helvetica', 
+                      fontSize: 12
+                    ),
                   ),
                   onTap: () {
                     setState(() {

@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../services/audius_service.dart';
+import '../services/local_audio_service.dart';
 
 class SearchScreen extends StatefulWidget {
   final bool isDarkMode;
-  final void Function(Track, [String?]) onTrackSelected;
+  final bool isLocalMode;
+  final void Function(List<Track>, int, [String?]) onTrackSelected;
 
   const SearchScreen({
     super.key,
     required this.isDarkMode,
+    required this.isLocalMode,
     required this.onTrackSelected,
   });
 
@@ -18,6 +21,7 @@ class SearchScreen extends StatefulWidget {
 
 class SearchScreenState extends State<SearchScreen> {
   final AudiusService _audiusService = AudiusService();
+  final LocalAudioService _localAudioService = LocalAudioService();
   
   List<Track> _searchResults = [];
   bool _isSearching = false;
@@ -33,7 +37,7 @@ class SearchScreenState extends State<SearchScreen> {
 
   void _scrollToSelection() {
     if (_scrollController.hasClients) {
-      double itemHeight = 56.0; 
+      double itemHeight = 44.0; 
       double viewportHeight = _scrollController.position.viewportDimension;
       double currentScroll = _scrollController.offset;
       double itemTop = _selectedResultIndex * itemHeight;
@@ -74,7 +78,7 @@ class SearchScreenState extends State<SearchScreen> {
   void handleSelect() {
     if (!_isKeyboardActive) {
       if (_searchResults.isNotEmpty) {
-        widget.onTrackSelected(_searchResults[_selectedResultIndex]);
+        widget.onTrackSelected(_searchResults, _selectedResultIndex, 'Search');
       }
       return;
     }
@@ -121,7 +125,24 @@ class SearchScreenState extends State<SearchScreen> {
       _searchResults = [];
     });
 
-    final results = await _audiusService.searchTracks(query);
+    List<Track> results = [];
+    if (widget.isLocalMode) {
+      final localSongs = await _localAudioService.getSongs();
+      final filteredSongs = localSongs.where((song) {
+        return song.title.toLowerCase().contains(query.toLowerCase()) ||
+               (song.artist?.toLowerCase().contains(query.toLowerCase()) ?? false);
+      }).toList();
+      
+      results = filteredSongs.map((song) => Track(
+        id: song.id.toString(),
+        title: song.title,
+        artist: song.artist ?? 'Unknown Artist',
+        isLocal: true,
+        localPath: song.data,
+      )).toList();
+    } else {
+      results = await _audiusService.searchTracks(query);
+    }
 
     if (mounted) {
       setState(() {
@@ -181,6 +202,7 @@ class SearchScreenState extends State<SearchScreen> {
                     )
                   : ListView.builder(
                       controller: _scrollController,
+                      physics: const NeverScrollableScrollPhysics(),
                       padding: EdgeInsets.zero,
                       itemCount: _searchResults.length,
                       itemBuilder: (context, index) {
@@ -188,21 +210,14 @@ class SearchScreenState extends State<SearchScreen> {
                         final bool isSelected = !_isKeyboardActive && index == _selectedResultIndex;
                         
                         return SizedBox(
-                          height: 56.0,
+                          height: 44.0,
                           child: ListTile(
+                          dense: true,
                           tileColor: isSelected 
                               ? (widget.isDarkMode ? const Color(0xFF0A84FF) : const Color(0xFF007AFF)) 
                               : null,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                             visualDensity: VisualDensity.compact,
-                            leading: Container(
-                              width: 32,
-                              height: 32,
-                              color: Colors.grey,
-                              child: track.artworkUrl != null
-                                  ? Image.network(track.artworkUrl!, fit: BoxFit.cover)
-                                  : const Icon(Icons.music_note, size: 16),
-                            ),
                             title: Text(
                               track.title,
                               maxLines: 1,
@@ -211,25 +226,13 @@ class SearchScreenState extends State<SearchScreen> {
                                 color: isSelected 
                                     ? Colors.white 
                                     : (widget.isDarkMode ? Colors.white : Colors.black),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                fontFamily: 'Helvetica',
-                              ),
-                            ),
-                            subtitle: Text(
-                              track.artist,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: isSelected 
-                                    ? Colors.white70 
-                                    : (widget.isDarkMode ? Colors.white54 : Colors.black54),
-                                fontSize: 11,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
                                 fontFamily: 'Helvetica',
                               ),
                             ),
                             onTap: () {
-                              widget.onTrackSelected(track);
+                              widget.onTrackSelected(_searchResults, index, 'Search');
                             },
                           ),
                         );

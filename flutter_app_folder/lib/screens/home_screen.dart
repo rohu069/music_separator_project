@@ -11,6 +11,8 @@ import 'playlists_screen.dart';
 import 'favorites_screen.dart';
 import 'music_separator_screen.dart';
 import 'search_screen.dart';
+import 'local_songs_screen.dart';
+import 'package:on_audio_query/on_audio_query.dart';
 
 enum IpodScreenState { home, menu, playlists, favorites, musicSeparator, search, localSongs }
 
@@ -21,11 +23,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   IpodScreenState _currentScreen = IpodScreenState.home;
   IpodScreenState? _previousScreen;
   int _selectedIndex = 0;
   bool _isDarkMode = false;
+  bool _isLocalMode = false;
   
   bool _showTrackOptions = false;
   int _trackOptionsIndex = 0;
@@ -63,12 +66,14 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<SearchScreenState> _searchKey = GlobalKey<SearchScreenState>();
   final GlobalKey<FavoritesScreenState> _favoritesKey = GlobalKey<FavoritesScreenState>();
   final GlobalKey<PlaylistsScreenState> _playlistsKey = GlobalKey<PlaylistsScreenState>();
+  final GlobalKey<LocalSongsScreenState> _localSongsKey = GlobalKey<LocalSongsScreenState>();
 
   final ScrollController _menuScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initAudioPlayer();
     _loadInitialTrack();
     _loadThemePreference();
@@ -88,7 +93,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _isPlaying = state.playing;
-          _isLoading = state.processingState == ProcessingState.loading || state.processingState == ProcessingState.buffering;
+          bool isLocal = _currentTrack?.isLocal == true;
+          _isLoading = !isLocal && (state.processingState == ProcessingState.loading || state.processingState == ProcessingState.buffering);
         });
         if (state.processingState == ProcessingState.completed) {
           _skipNext();
@@ -118,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _fetchQueue() async {
+  Future<void> _fetchQueue({bool setSource = true}) async {
     if (_trackQueue.isEmpty) {
       _trackQueue = await _audiusService.getTrendingTracks();
       _trackQueue.shuffle();
@@ -129,49 +135,172 @@ class _HomeScreenState extends State<HomeScreen> {
         audioSources.add(AudioSource.uri(Uri.parse(streamUrl)));
       }
       _playlist = audioSources;
-      await _audioPlayer.setAudioSources(_playlist!, initialIndex: 0);
+      if (setSource && _playlist!.isNotEmpty) {
+        await _audioPlayer.setAudioSources(_playlist!, initialIndex: 0);
+        await _audioPlayer.setLoopMode(LoopMode.all);
+      }
     }
   }
 
   Future<void> _loadInitialTrack() async {
     setState(() => _isLoading = true);
-    await _fetchQueue();
-    if (_trackQueue.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _currentTrack = _trackQueue[0];
-          _isLoading = false;
-        });
+    final prefs = await SharedPreferences.getInstance();
+    final lastTrackStr = prefs.getString('last_track');
+    final lastPositionMs = prefs.getInt('last_position') ?? 0;
+    final lastQueueStr = prefs.getString('last_queue');
+    final lastContextStr = prefs.getString('last_context');
+
+    if (lastContextStr != null) {
+      _playingContext = lastContextStr;
+    }
+
+    if (lastQueueStr != null) {
+      try {
+        final List<dynamic> queueList = json.decode(lastQueueStr);
+        _trackQueue = queueList.map((j) => Track.fromLocalJson(j)).toList();
+      } catch (e) {
+        // Fallback
+      }
+    }
+
+    if (_trackQueue.isEmpty) {
+      await _fetchQueue(setSource: false);
+    } else {
+      final host = await _audiusService.getHostNode();
+      List<AudioSource> audioSources = [];
+      for (var t in _trackQueue) {
+        if (t.isLocal && t.localPath != null) {
+          audioSources.add(AudioSource.uri(Uri.file(t.localPath!)));
+        } else {
+          audioSources.add(AudioSource.uri(Uri.parse('$host/v1/tracks/${t.id}/stream?app_name=${_audiusService.appName}')));
+        }
+      }
+      _playlist = audioSources;
+    }
+
+    if (lastTrackStr != null) {
+      try {
+        final lastTrack = Track.fromLocalJson(json.decode(lastTrackStr));
+        if (mounted) {
+          setState(() {
+            _currentTrack = lastTrack;
+            _currentPosition = Duration(milliseconds: lastPositionMs);
+            _isLocalMode = lastTrack.isLocal;
+          });
+        }
+        
+        int initialIndex = _trackQueue.indexWhere((t) => t.id == lastTrack.id);
+        if (initialIndex == -1) {
+          _trackQueue.insert(0, lastTrack);
+          initialIndex = 0;
+          if (lastTrack.isLocal && lastTrack.localPath != null) {
+            _playlist!.insert(0, AudioSource.uri(Uri.file(lastTrack.localPath!)));
+          } else {
+            final host = await _audiusService.getHostNode();
+            _playlist!.insert(0, AudioSource.uri(Uri.parse('$host/v1/tracks/${lastTrack.id}/stream?app_name=${_audiusService.appName}')));
+          }
+        }
+        
+        await _audioPlayer.setAudioSources(
+          _playlist!,
+          initialIndex: initialIndex,
+          initialPosition: Duration(milliseconds: lastPositionMs),
+        );
+        await _audioPlayer.setLoopMode(LoopMode.all);
+
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        if (_trackQueue.isNotEmpty && mounted) {
+          setState(() {
+            _currentTrack = _trackQueue[0];
+            _isLoading = false;
+          });
+          await _audioPlayer.setAudioSources(_playlist!, initialIndex: 0);
+          await _audioPlayer.setLoopMode(LoopMode.all);
+        }
+      }
+    } else {
+      if (_trackQueue.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _currentTrack = _trackQueue[0];
+            _isLoading = false;
+          });
+        }
+        await _audioPlayer.setAudioSources(_playlist!, initialIndex: 0);
+        await _audioPlayer.setLoopMode(LoopMode.all);
       }
     }
   }
 
-  Future<void> _playTrackNow(Track track, [String? playlistContext]) async {
+  Future<void> _loadOnlineSongs() async {
+    setState(() {
+      _isLoading = true;
+      _trackQueue.clear();
+      _isLocalMode = false;
+    });
+    
+    try {
+      await _fetchQueue(setSource: true);
+    } catch (e) {
+      debugPrint("Error fetching online songs: $e");
+    }
+    
+    if (_trackQueue.isNotEmpty && mounted) {
+      setState(() {
+        _currentTrack = _trackQueue[0];
+        _isLoading = false;
+        _currentPosition = Duration.zero;
+      });
+      _audioPlayer.play();
+      _saveCurrentTrack();
+    } else if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load online songs. Please check your internet connection.')),
+      );
+    }
+  }
+
+  Future<void> _playTrackNow(List<Track> tracks, int startIndex, [String? playlistContext]) async {
     if (_currentScreen != IpodScreenState.home) {
       _previousScreen = _currentScreen;
     }
+    final track = tracks[startIndex];
     setState(() {
       _playingContext = playlistContext;
       _currentScreen = IpodScreenState.home;
-      _isLoading = true;
+      if (!track.isLocal) {
+        _isLoading = true;
+      }
       _currentTrack = track;
       _currentPosition = Duration.zero;
       _totalDuration = Duration.zero;
     });
 
     try {
-      final streamUrl = await _audiusService.getStreamUrl(track.id);
-      final audioSource = AudioSource.uri(Uri.parse(streamUrl));
-
-      _trackQueue.insert(0, track);
+      final host = await _audiusService.getHostNode();
       
-      if (_playlist == null) {
-        _playlist = [audioSource];
-        await _audioPlayer.setAudioSources(_playlist!, initialIndex: 0);
-      } else {
-        _playlist!.insert(0, audioSource);
-        await _audioPlayer.setAudioSources(_playlist!, initialIndex: 0);
+      List<AudioSource> audioSources = [];
+      for (var t in tracks) {
+        if (t.isLocal && t.localPath != null) {
+          audioSources.add(AudioSource.uri(Uri.file(t.localPath!)));
+        } else {
+          audioSources.add(AudioSource.uri(Uri.parse('$host/v1/tracks/${t.id}/stream?app_name=${_audiusService.appName}')));
+        }
       }
+
+      _trackQueue = List.from(tracks);
+      _playlist = audioSources;
+      
+      await _audioPlayer.setAudioSources(audioSources, initialIndex: startIndex);
+      await _audioPlayer.setLoopMode(LoopMode.all);
 
       if (mounted) {
         setState(() {
@@ -193,6 +322,16 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_currentTrack != null) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('last_track', json.encode(_currentTrack!.toJson()));
+      await prefs.setInt('last_position', _currentPosition.inMilliseconds);
+      if (_trackQueue.isNotEmpty) {
+        final queueJson = json.encode(_trackQueue.map((t) => t.toJson()).toList());
+        await prefs.setString('last_queue', queueJson);
+      }
+      if (_playingContext != null) {
+        await prefs.setString('last_context', _playingContext!);
+      } else {
+        await prefs.remove('last_context');
+      }
     }
   }
 
@@ -240,9 +379,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _seekTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive || state == AppLifecycleState.detached) {
+      _saveCurrentTrack();
+    }
   }
 
   Widget _buildTrackOptionsOverlay() {
@@ -323,6 +470,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             Expanded(
               child: ListView.builder(
+                physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
                 itemCount: _existingPlaylists.length + 1,
                 itemBuilder: (context, index) {
@@ -618,8 +766,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return [
       {'title': 'Now Playing', 'icon': Icons.play_circle_outline},
       {'title': 'Search', 'icon': Icons.search},
-      {'title': 'Online Songs', 'icon': Icons.cloud},
-      {'title': 'Your Songs', 'icon': Icons.library_music},
+      {'title': _isLocalMode ? 'Online Songs' : 'Your Songs', 'icon': _isLocalMode ? Icons.cloud : Icons.library_music},
       {'title': 'Playlists', 'icon': Icons.queue_music},
       {'title': 'Favorites', 'icon': Icons.favorite},
       {'title': 'Music Separator', 'icon': Icons.graphic_eq},
@@ -647,12 +794,14 @@ class _HomeScreenState extends State<HomeScreen> {
         _selectedIndex = 0;
         _playingContext = null;
         _trackQueue.clear();
+        _isLocalMode = false;
       });
-      _loadInitialTrack();
+      _loadOnlineSongs();
     } else if (selectedTitle == 'Your Songs') {
       setState(() {
         _previousScreen = null;
         _currentScreen = IpodScreenState.localSongs;
+        _isLocalMode = true;
       });
     } else if (selectedTitle == 'Playlists') {
       setState(() {
@@ -793,11 +942,20 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_currentScreen == IpodScreenState.playlists) {
       Vibration.vibrate(duration: 15);
       _playlistsKey.currentState?.moveSelection(delta);
+    } else if (_currentScreen == IpodScreenState.localSongs) {
+      Vibration.vibrate(duration: 15);
+      _localSongsKey.currentState?.moveSelection(delta);
+    } else if (_currentScreen == IpodScreenState.home) {
+      if (delta > 0) {
+        _skipNext();
+      } else if (delta < 0) {
+        _skipPrevious();
+      }
     }
   }
 
   String _getHeaderText() {
-    if (_playingContext == null) return 'Online Songs';
+    if (_playingContext == null) return _currentTrack?.isLocal == true ? 'Local Songs' : 'Online Songs';
     if (_playingContext == 'Favorites') return 'From Favorites';
     if (_playingContext == 'Search') return 'From Search';
     return 'Playlist: "$_playingContext"';
@@ -877,15 +1035,26 @@ class _HomeScreenState extends State<HomeScreen> {
                       BoxShadow(color: Colors.black26, offset: Offset(2, 2), blurRadius: 4),
                     ]
                   ),
-                  child: _currentTrack!.artworkUrl != null
-                      ? Image.network(
-                          _currentTrack!.artworkUrl!, 
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Image.asset('assets/images/fallback_album_cover.jpg', fit: BoxFit.cover);
-                          },
+                  child: _currentTrack!.isLocal
+                      ? QueryArtworkWidget(
+                          key: ValueKey(_currentTrack!.id),
+                          keepOldArtwork: true,
+                          id: int.tryParse(_currentTrack!.id) ?? 0,
+                          type: ArtworkType.AUDIO,
+                          nullArtworkWidget: Image.asset('assets/images/fallback_album_cover.png', fit: BoxFit.cover),
+                          artworkFit: BoxFit.cover,
+                          artworkWidth: 100,
+                          artworkHeight: 100,
                         )
-                      : Image.asset('assets/images/fallback_album_cover.jpg', fit: BoxFit.cover),
+                      : _currentTrack!.artworkUrl != null
+                          ? Image.network(
+                              _currentTrack!.artworkUrl!, 
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Image.asset('assets/images/fallback_album_cover.png', fit: BoxFit.cover);
+                              },
+                            )
+                          : Image.asset('assets/images/fallback_album_cover.png', fit: BoxFit.cover),
                 ),
                 const SizedBox(width: 12),
                 // Metadata
@@ -961,18 +1130,21 @@ class _HomeScreenState extends State<HomeScreen> {
       return SearchScreen(
         key: _searchKey,
         isDarkMode: _isDarkMode,
+        isLocalMode: _isLocalMode,
         onTrackSelected: _playTrackNow,
       );
     } else if (_currentScreen == IpodScreenState.playlists) {
       return PlaylistsScreen(
         key: _playlistsKey,
         isDarkMode: _isDarkMode,
+        isLocalMode: _isLocalMode,
         onTrackSelected: _playTrackNow,
       );
     } else if (_currentScreen == IpodScreenState.favorites) {
       return FavoritesScreen(
         key: _favoritesKey,
         isDarkMode: _isDarkMode,
+        isLocalMode: _isLocalMode,
         onTrackSelected: _playTrackNow,
       );
     } else if (_currentScreen == IpodScreenState.musicSeparator) {
@@ -980,17 +1152,10 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_currentScreen == IpodScreenState.home) {
       return _buildNowPlayingScreen();
     } else if (_currentScreen == IpodScreenState.localSongs) {
-      return Center(
-        child: Text(
-          'Your Local\nSongs',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: _isDarkMode ? Colors.white70 : Colors.black87,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Helvetica',
-          ),
-        ),
+      return LocalSongsScreen(
+        key: _localSongsKey,
+        isDarkMode: _isDarkMode,
+        onTrackSelected: _playTrackNow,
       );
     } else {
       // Classic iPod Menu
@@ -1025,6 +1190,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: _isDarkMode ? const Color(0xFF121212) : Colors.white,
               child: ListView.builder(
                 controller: _menuScrollController,
+                physics: const NeverScrollableScrollPhysics(),
                 padding: EdgeInsets.zero,
                 itemCount: _menuItems.length,
                 itemBuilder: (context, index) {
@@ -1416,10 +1582,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               _favoritesKey.currentState?.handleSelect();
                             } else if (_currentScreen == IpodScreenState.playlists) {
                               _playlistsKey.currentState?.handleSelect();
+                            } else if (_currentScreen == IpodScreenState.localSongs) {
+                              _localSongsKey.currentState?.handleSelect();
                             }
                           },
                           onLongPress: () async {
-                            if (_currentTrack != null) {
+                            if (_currentTrack != null && _currentScreen == IpodScreenState.home) {
                               Vibration.vibrate(duration: 50);
                               
                               final prefs = await SharedPreferences.getInstance();
