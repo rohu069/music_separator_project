@@ -161,12 +161,7 @@ class FavoritesScreenState extends State<FavoritesScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
                   ),
-                  onTap: () {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                    handleSelect();
-                  },
+
                 ),
                 ),
               );

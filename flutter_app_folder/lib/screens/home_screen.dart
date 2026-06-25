@@ -70,6 +70,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final GlobalKey<MusicSeparatorScreenState> _separatorKey = GlobalKey<MusicSeparatorScreenState>();
 
   final ScrollController _menuScrollController = ScrollController();
+  int? _pressedSector;
 
   @override
   void initState() {
@@ -863,7 +864,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     
     setState(() {
       if (_currentScreen == IpodScreenState.menu) {
-        _currentScreen = _previousScreen ?? IpodScreenState.home;
+        _currentScreen = IpodScreenState.home;
         _previousScreen = null;
       } else {
         _previousScreen = _currentScreen;
@@ -1202,14 +1203,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 itemCount: _menuItems.length,
                 itemBuilder: (context, index) {
                   bool isSelected = index == _selectedIndex;
-                  return GestureDetector(
-                    onTap: () {
-                      Vibration.vibrate(duration: 30);
-                      setState(() {
-                        _selectedIndex = index;
-                      });
-                    },
-                    child: Container(
+                  return Container(
                       height: 30,
                       decoration: isSelected
                           ? BoxDecoration(
@@ -1250,7 +1244,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           ),
                         ],
                       ),
-                    ),
                   );
                 },
               ),
@@ -1478,11 +1471,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: ClickWheelPainter(
+                                pressedSector: _pressedSector,
+                                isDarkMode: _isDarkMode,
+                              ),
+                            ),
+                          ),
                         // Menu Text
                         Positioned(
                           top: 15,
-                          child: GestureDetector(
+                          child: ClickWheelButton(
                             onTap: _toggleMenu,
+                            onStateChange: (pressed) => setState(() => _pressedSector = pressed ? 0 : null),
                             child: Container(
                               color: Colors.transparent, // Expand hit area
                               padding: const EdgeInsets.all(20),
@@ -1501,8 +1503,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         // Play/Pause Icon
                         Positioned(
                           bottom: 15,
-                          child: GestureDetector(
+                          child: ClickWheelButton(
                             onTap: _togglePlayPause,
+                            onStateChange: (pressed) => setState(() => _pressedSector = pressed ? 2 : null),
                             child: Container(
                               color: Colors.transparent, // Expand hit area
                               padding: const EdgeInsets.all(20),
@@ -1527,8 +1530,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         // Backward Icon
                         Positioned(
                           left: 15,
-                          child: GestureDetector(
+                          child: ClickWheelButton(
                             onTap: _skipPrevious,
+                            onStateChange: (pressed) => setState(() => _pressedSector = pressed ? 3 : null),
                             onLongPressStart: (_) => _startSeeking(-1),
                             onLongPressEnd: (_) => _stopSeeking(),
                             child: Container(
@@ -1545,8 +1549,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         // Forward Icon
                         Positioned(
                           right: 15,
-                          child: GestureDetector(
+                          child: ClickWheelButton(
                             onTap: _skipNext,
+                            onStateChange: (pressed) => setState(() => _pressedSector = pressed ? 1 : null),
                             onLongPressStart: (_) => _startSeeking(1),
                             onLongPressEnd: (_) => _stopSeeking(),
                             child: Container(
@@ -1560,8 +1565,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                             ),
                           ),
                         ),
-                        // Center Button (Metallic)
-                        GestureDetector(
+                        ClickWheelButton(
+                          pressedOpacity: 1.0, // Don't become transparent to hide background
                           onTap: () {
                             Vibration.vibrate(duration: 30);
                             if (_showPlaylistKeyboard) {
@@ -1790,3 +1795,112 @@ class _MarqueeTextState extends State<MarqueeText> {
   }
 }
 
+class ClickWheelButton extends StatefulWidget {
+  final Widget? child;
+  final GestureTapCallback? onTap;
+  final GestureLongPressCallback? onLongPress;
+  final void Function(LongPressStartDetails)? onLongPressStart;
+  final void Function(LongPressEndDetails)? onLongPressEnd;
+  final ValueChanged<bool>? onStateChange;
+  final double pressedOpacity;
+
+  const ClickWheelButton({
+    super.key,
+    this.child,
+    this.onTap,
+    this.onLongPress,
+    this.onLongPressStart,
+    this.onLongPressEnd,
+    this.onStateChange,
+    this.pressedOpacity = 0.3,
+  });
+
+  @override
+  State<ClickWheelButton> createState() => _ClickWheelButtonState();
+}
+
+class _ClickWheelButtonState extends State<ClickWheelButton> {
+  bool _isPressed = false;
+
+  void _setPressed(bool pressed) {
+    if (_isPressed == pressed) return;
+    setState(() => _isPressed = pressed);
+    if (widget.onStateChange != null) {
+      widget.onStateChange!(pressed);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      onLongPressStart: (details) {
+        _setPressed(true);
+        if (widget.onLongPressStart != null) widget.onLongPressStart!(details);
+      },
+      onLongPressEnd: (details) {
+        _setPressed(false);
+        if (widget.onLongPressEnd != null) widget.onLongPressEnd!(details);
+      },
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 50),
+        opacity: _isPressed ? widget.pressedOpacity : 1.0,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+class ClickWheelPainter extends CustomPainter {
+  final int? pressedSector;
+  final bool isDarkMode;
+
+  ClickWheelPainter({this.pressedSector, required this.isDarkMode});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    
+    // Draw 45 degree separation lines
+    final linePaint = Paint()
+      ..color = isDarkMode ? Colors.black38 : Colors.black12
+      ..strokeWidth = 1.5;
+
+    // 45 degrees = pi / 4
+    for (int i = 0; i < 4; i++) {
+      final angle = (pi / 4) + (i * pi / 2);
+      final p2 = Offset(
+        center.dx + radius * cos(angle),
+        center.dy + radius * sin(angle),
+      );
+      canvas.drawLine(center, p2, linePaint);
+    }
+
+    // Draw darkened sector if pressed
+    if (pressedSector != null && pressedSector! >= 0 && pressedSector! <= 3) {
+      final highlightPaint = Paint()
+        ..color = isDarkMode ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.15)
+        ..style = PaintingStyle.fill;
+      
+      final startAngle = (pressedSector! * pi / 2) - (3 * pi / 4);
+      
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle,
+        pi / 2, // 90 degrees sweep
+        true,
+        highlightPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(ClickWheelPainter old) => 
+      old.pressedSector != pressedSector || old.isDarkMode != isDarkMode;
+}

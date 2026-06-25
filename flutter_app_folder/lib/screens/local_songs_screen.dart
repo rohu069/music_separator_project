@@ -178,12 +178,7 @@ class LocalSongsScreenState extends State<LocalSongsScreen> {
                       fontSize: 12
                     ),
                   ),
-                  onTap: () {
-                    setState(() {
-                      _selectedIndex = index;
-                    });
-                    handleSelect();
-                  },
+
                 ),
                 ),
               );

@@ -197,10 +197,7 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
                       'Back',
                       style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
                     ),
-                    onTap: () {
-                      setState(() => _selectedIndex = index);
-                      handleSelect();
-                    },
+
                   ),
                   ),
                 );
@@ -227,10 +224,7 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
                       style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                     trailing: Icon(Icons.chevron_right, size: 16, color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white30 : Colors.black38)),
-                    onTap: () {
-                      setState(() => _selectedIndex = index);
-                      handleSelect();
-                    },
+
                   ),
                   ),
                 );
@@ -255,10 +249,7 @@ class PlaylistsScreenState extends State<PlaylistsScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: isSelected ? Colors.white : (widget.isDarkMode ? Colors.white : Colors.black), fontFamily: 'Helvetica', fontSize: 14, fontWeight: FontWeight.bold),
                   ),
-                  onTap: () {
-                    setState(() => _selectedIndex = index);
-                    handleSelect();
-                  },
+
                 ),
                 ),
               );

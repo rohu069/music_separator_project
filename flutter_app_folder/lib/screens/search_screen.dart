@@ -231,9 +231,7 @@ class SearchScreenState extends State<SearchScreen> {
                                 fontFamily: 'Helvetica',
                               ),
                             ),
-                            onTap: () {
-                              widget.onTrackSelected(_searchResults, index, 'Search');
-                            },
+
                           ),
                         );
                       },
