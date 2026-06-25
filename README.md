@@ -2,9 +2,9 @@
   <img src="flutter_app_folder/assets/images/app_icon.png" width="128" />
 </p>
 
-# 🎵 Retro Music Player & AI Separator
+# 🎵 RetroPod
 
-Welcome to the **Retro Music Player & AI Separator**! This is a full-stack project that marries a nostalgic, iPod-classic-inspired music player interface with cutting-edge AI technologies for audio separation.
+Welcome to **RetroPod**! This is a full-stack project that marries a nostalgic, iPod-classic-inspired music player interface with cutting-edge AI technologies for audio separation.
 
 Whether you want to stream trending tracks, manage your local music library, or isolate the vocals and instruments from your favorite songs, this application has you covered.
 
