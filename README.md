@@ -1,9 +1,44 @@
-# 🎵 Music Separator & Transcriber
+# 🎵 Retro Music Player & AI Separator
 
-A full-stack project that allows users to upload an audio file and:
-- **Separate vocals, drums, bass, piano, and other stems** using [Spleeter](https://github.com/deezer/spleeter)
-- **Transcribe vocals to text** using [OpenAI's Whisper](https://github.com/openai/whisper)
-- View the separated tracks and lyrics in a **Flutter-based frontend UI**
+Welcome to the **Retro Music Player & AI Separator**! This is a full-stack project that marries a nostalgic, iPod-classic-inspired music player interface with cutting-edge AI technologies for audio separation and transcription.
+
+Whether you want to stream trending tracks, manage your local music library, or isolate the vocals and instruments from your favorite songs, this application has you covered.
+
+---
+
+## 🌟 Key Features
+
+### 📱 The Nostalgic Player (Frontend)
+Experience music through a beautifully crafted, retro-style interface built with Flutter.
+- **Classic Wheel Navigation**: Scroll through menus and seek tracks using a nostalgic, circular scroll-wheel interface with haptic feedback.
+- **Online Streaming**: Integrated with the [Audius API](https://audius.co/) to fetch and stream trending tracks directly from the decentralized network.
+- **Local Music Support**: Seamlessly browse and play audio files stored locally on your device.
+- **Playlists & Favorites**: Create custom playlists, favorite your top tracks, and manage your library easily.
+- **Dark & Light Modes**: Switch between themes for the perfect viewing experience in any lighting.
+
+### 🎛️ The AI Separator (Backend)
+Harness the power of machine learning to deconstruct your music.
+- **Stem Separation**: Upload any `.mp3`, `.wav`, or `.m4a` file and separate it into different tracks using [Spleeter](https://github.com/deezer/spleeter).
+  - *2-Stem*: Vocals / Accompaniment
+  - *4-Stem*: Vocals / Drums / Bass / Other
+  - *5-Stem*: Vocals / Drums / Bass / Piano / Other
+- **Vocal Transcription**: Automatically transcribe isolated vocals to text using [OpenAI's Whisper](https://github.com/openai/whisper).
+- **Interactive UI**: Listen to individual stems, adjust their volumes, and read the transcribed lyrics directly within the Flutter app's "Music Separator" screen.
+
+---
+
+## 🛠️ Tech Stack
+
+**Frontend (Mobile/Web/Desktop)**
+- [Flutter](https://flutter.dev/) & Dart
+- `just_audio` for robust audio playback
+- `on_audio_query` for local file querying
+
+**Backend (Audio Processing Server)**
+- [Python 3](https://www.python.org/) & [FastAPI](https://fastapi.tiangolo.com/)
+- [Spleeter](https://github.com/deezer/spleeter) (Audio Separation)
+- [Whisper AI](https://github.com/openai/whisper) (Transcription)
+- `ffmpeg` (Audio manipulation)
 
 ---
 
@@ -11,89 +46,99 @@ A full-stack project that allows users to upload an audio file and:
 
 ```plaintext
 music_separator_project/
-├── backend_app_folder/          # FastAPI app with audio separation + transcription
-│   ├── main.py                  # FastAPI backend logic
-│   ├── uploads/                 # Stores uploaded files
-│   └── separated/               # Stores output stems
+├── backend_app_folder/          # Python/FastAPI server for AI processing
+│   ├── main.py                  # API endpoints and logic
+│   ├── requirements.txt         # Backend dependencies
+│   ├── uploads/                 # Temporary storage for uploads
+│   └── separated/               # Output directory for isolated stems
 │
-├── frontend_flutter_app/        # Flutter frontend UI
+├── flutter_app_folder/          # Flutter UI
 │   ├── lib/
-│   └── ... (Flutter project files)
+│   │   ├── screens/             # UI screens (Home, Separator, Playlists, etc.)
+│   │   ├── services/            # Audius API & Backend communication
+│   │   └── main.dart            # App entry point
+│   └── pubspec.yaml             # Frontend dependencies
 │
-├── README.md                    # This file
-└── requirements.txt             # Python dependencies for backend
+└── README.md                    # Project documentation
+```
 
+---
 
-🚀 Features
-🎧 Upload .mp3, .wav, or .m4a files
+## 🚀 Getting Started
 
-🔀 Choose between 2-stem, 4-stem, or 5-stem separation
+To run the full stack, you will need to start both the backend server and the frontend application.
 
-🎤 Transcribe vocals automatically using Whisper AI
+### 1. Backend Setup (AI Separator)
 
-🌐 Clean and interactive Flutter frontend UI
+You need Python installed. We highly recommend using a virtual environment.
 
-🔄 FastAPI backend with CORS support
-
-🛠️ Tech Stack
-Frontend: Flutter (Dart)
-
-Backend: FastAPI (Python)
-
-Audio Separation: Spleeter
-
-Transcription: Whisper
-
-Model Used: Whisper base and Spleeter 2/4/5 stems
-
-📦 Backend Setup (Python + FastAPI)
-
-✅ Step 1: Create a virtual environment
-
+```bash
 cd backend_app_folder
+
+# Create and activate virtual environment
 python -m venv venv
-venv\Scripts\activate     # On Windows
-# source venv/bin/activate  # On macOS/Linux
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
 
-✅ Step 2: Install dependencies
-
+# Install dependencies
 pip install -r requirements.txt
-Make sure ffmpeg is installed and accessible in your PATH.
+```
+> **Note**: You must have `ffmpeg` installed and added to your system's PATH for Spleeter to work correctly.
 
-✅ Step 3: Run FastAPI server
-
+Run the FastAPI server:
+```bash
 uvicorn main:app --reload
-Access the backend at: http://localhost:8000
+```
+The server will run on `http://localhost:8000`.
 
-📱 Frontend Setup (Flutter)
+### 2. Frontend Setup (Flutter Player)
 
-cd frontend_flutter_app
+Ensure you have [Flutter](https://docs.flutter.dev/get-started/install) installed.
+
+```bash
+cd flutter_app_folder
+
+# Fetch dependencies
 flutter pub get
+
+# Run the app (ensure you have an emulator running or device connected)
 flutter run
-Make sure you're using a device or emulator.
+```
 
-📡 API Endpoint Info
-POST /upload/
+> **Important for physical devices**: If running the backend on your PC and the frontend on a physical phone, ensure both are on the same Wi-Fi network and update the backend URL in the Flutter app to point to your PC's local IP address (e.g., `192.168.1.x:8000`) instead of `localhost`.
 
-Field	Type	Description
-file	File	Audio file (.mp3, .wav, .m4a)
-model	String	One of: 2stems, 4stems, 5stems
+---
 
-Response JSON:
+## 📡 Backend API Reference
 
+**POST `/upload/`**
+Separates the audio file and transcribes lyrics.
+
+| Field | Type   | Description                                     |
+|-------|--------|-------------------------------------------------|
+| file  | File   | Audio file to process (.mp3, .wav, .m4a)        |
+| model | String | Separation model to use: `2stems`, `4stems`, `5stems` |
+
+**Response Example:**
+```json
 {
-  "vocals": "http://localhost:8000/separated/songname/vocals.wav",
-  "drums": "http://localhost:8000/separated/songname/drums.wav",
-  ...
-  "lyrics": "Transcribed lyrics here"
+  "vocals": "http://localhost:8000/separated/track/vocals.wav",
+  "drums": "http://localhost:8000/separated/track/drums.wav",
+  "bass": "http://localhost:8000/separated/track/bass.wav",
+  "other": "http://localhost:8000/separated/track/other.wav",
+  "lyrics": "Transcribed lyrics generated by Whisper..."
 }
+```
 
-📸 Screenshots.
+---
 
+## 👨‍💻 Author
 
-👨‍💻 Author
-Rohith Rajesh K
-GitHub: rohu069
+**Rohith Rajesh K**  
+GitHub: [@rohu069](https://github.com/rohu069)
 
-📜 License
-This project is open-source and available under the MIT License.
+## 📜 License
+
+This project is open-source and available under the MIT License. Feel free to fork, modify, and use it in your own projects!
