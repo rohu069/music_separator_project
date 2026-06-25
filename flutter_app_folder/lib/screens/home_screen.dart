@@ -1885,7 +1885,7 @@ class ClickWheelPainter extends CustomPainter {
     // Draw darkened sector if pressed
     if (pressedSector != null && pressedSector! >= 0 && pressedSector! <= 3) {
       final highlightPaint = Paint()
-        ..color = isDarkMode ? Colors.black.withOpacity(0.5) : Colors.black.withOpacity(0.15)
+        ..color = isDarkMode ? Colors.black.withValues(alpha: 0.5) : Colors.black.withValues(alpha: 0.15)
         ..style = PaintingStyle.fill;
       
       final startAngle = (pressedSector! * pi / 2) - (3 * pi / 4);
