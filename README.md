@@ -26,6 +26,26 @@ Harness the power of machine learning to deconstruct your music.
 
 ---
 
+## 📸 Screenshots
+
+Here is a glimpse of the beautifully crafted iPod-style interface in both Light and Dark themes.
+
+### Light Mode
+<p float="left">
+  <img src="flutter_app_folder/Screenshots/Screenshot_2026-06-25-11-33-07-72_ecfc24becff9f0cf57703d029722b38d.jpg" width="30%" />
+  <img src="flutter_app_folder/Screenshots/Screenshot_2026-06-25-11-31-41-61_ecfc24becff9f0cf57703d029722b38d.jpg" width="30%" /> 
+  <img src="flutter_app_folder/Screenshots/Screenshot_2026-06-25-11-34-04-14_ecfc24becff9f0cf57703d029722b38d.jpg" width="30%" />
+</p>
+
+### Dark Mode
+<p float="left">
+  <img src="flutter_app_folder/Screenshots/Screenshot_2026-06-25-11-32-10-89_ecfc24becff9f0cf57703d029722b38d.jpg" width="30%" />
+  <img src="flutter_app_folder/Screenshots/Screenshot_2026-06-25-11-31-53-54_ecfc24becff9f0cf57703d029722b38d.jpg" width="30%" />
+  <img src="flutter_app_folder/Screenshots/Screenshot_2026-06-25-11-32-29-47_ecfc24becff9f0cf57703d029722b38d.jpg" width="30%" />
+</p>
+
+---
+
 ## 🛠️ Tech Stack
 
 **Frontend (Mobile)**
