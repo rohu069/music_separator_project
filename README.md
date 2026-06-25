@@ -1,6 +1,6 @@
 # 🎵 Retro Music Player & AI Separator
 
-Welcome to the **Retro Music Player & AI Separator**! This is a full-stack project that marries a nostalgic, iPod-classic-inspired music player interface with cutting-edge AI technologies for audio separation and transcription.
+Welcome to the **Retro Music Player & AI Separator**! This is a full-stack project that marries a nostalgic, iPod-classic-inspired music player interface with cutting-edge AI technologies for audio separation.
 
 Whether you want to stream trending tracks, manage your local music library, or isolate the vocals and instruments from your favorite songs, this application has you covered.
 
@@ -16,29 +16,27 @@ Experience music through a beautifully crafted, retro-style interface built with
 - **Playlists & Favorites**: Create custom playlists, favorite your top tracks, and manage your library easily.
 - **Dark & Light Modes**: Switch between themes for the perfect viewing experience in any lighting.
 
-### 🎛️ The AI Separator (Backend)
+### 🎛️ The AI Separator (Backend & Cloud)
 Harness the power of machine learning to deconstruct your music.
-- **Stem Separation**: Upload any `.mp3`, `.wav`, or `.m4a` file and separate it into different tracks using [Spleeter](https://github.com/deezer/spleeter).
-  - *2-Stem*: Vocals / Accompaniment
-  - *4-Stem*: Vocals / Drums / Bass / Other
-  - *5-Stem*: Vocals / Drums / Bass / Piano / Other
-- **Vocal Transcription**: Automatically transcribe isolated vocals to text using [OpenAI's Whisper](https://github.com/openai/whisper).
-- **Interactive UI**: Listen to individual stems, adjust their volumes, and read the transcribed lyrics directly within the Flutter app's "Music Separator" screen.
+- **Stem Separation with Demucs**: Upload a song from your device and separate it into two high-quality stems using [Demucs (HTDemucs model)](https://github.com/facebookresearch/demucs).
+  - **Vocals**
+  - **Accompaniment (Music)**
+- **Cloud Processing via Hugging Face**: The heavy lifting is handled by a FastAPI backend deployed on Hugging Face Spaces, ensuring your mobile device stays fast and responsive.
+- **Interactive Studio Mixer**: Once separated, listen to the individual stems directly in the app. You can independently adjust the volume of the vocals and the music, and even download the stems directly to your device.
 
 ---
 
 ## 🛠️ Tech Stack
 
-**Frontend (Mobile/Web/Desktop)**
+**Frontend (Mobile)**
 - [Flutter](https://flutter.dev/) & Dart
 - `just_audio` for robust audio playback
 - `on_audio_query` for local file querying
 
-**Backend (Audio Processing Server)**
+**Backend (Audio Processing API)**
 - [Python 3](https://www.python.org/) & [FastAPI](https://fastapi.tiangolo.com/)
-- [Spleeter](https://github.com/deezer/spleeter) (Audio Separation)
-- [Whisper AI](https://github.com/openai/whisper) (Transcription)
-- `ffmpeg` (Audio manipulation)
+- [Demucs](https://github.com/facebookresearch/demucs) for state-of-the-art music source separation
+- Hosted on Hugging Face Spaces
 
 ---
 
@@ -46,11 +44,11 @@ Harness the power of machine learning to deconstruct your music.
 
 ```plaintext
 music_separator_project/
-├── backend_app_folder/          # Python/FastAPI server for AI processing
-│   ├── main.py                  # API endpoints and logic
+├── backend_app_folder/          # Python/FastAPI server (Demucs)
+│   ├── main.py                  # API endpoints and separation logic
 │   ├── requirements.txt         # Backend dependencies
 │   ├── uploads/                 # Temporary storage for uploads
-│   └── separated/               # Output directory for isolated stems
+│   └── output/                  # Output directory for Demucs
 │
 ├── flutter_app_folder/          # Flutter UI
 │   ├── lib/
@@ -66,11 +64,8 @@ music_separator_project/
 
 ## 🚀 Getting Started
 
-To run the full stack, you will need to start both the backend server and the frontend application.
-
-### 1. Backend Setup (AI Separator)
-
-You need Python installed. We highly recommend using a virtual environment.
+### 1. Backend Setup (Local Testing)
+The app is configured to hit the Hugging Face Space by default, but you can run the backend locally if you wish:
 
 ```bash
 cd backend_app_folder
@@ -85,7 +80,8 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 ```
-> **Note**: You must have `ffmpeg` installed and added to your system's PATH for Spleeter to work correctly.
+
+> **Note**: You must have `ffmpeg` installed and added to your system's PATH for Demucs to work.
 
 Run the FastAPI server:
 ```bash
@@ -107,30 +103,22 @@ flutter pub get
 flutter run
 ```
 
-> **Important for physical devices**: If running the backend on your PC and the frontend on a physical phone, ensure both are on the same Wi-Fi network and update the backend URL in the Flutter app to point to your PC's local IP address (e.g., `192.168.1.x:8000`) instead of `localhost`.
-
 ---
 
 ## 📡 Backend API Reference
 
-**POST `/upload/`**
-Separates the audio file and transcribes lyrics.
+**POST `/upload`**
+Uploads a song and begins the Demucs 2-stem separation process.
 
 | Field | Type   | Description                                     |
 |-------|--------|-------------------------------------------------|
-| file  | File   | Audio file to process (.mp3, .wav, .m4a)        |
-| model | String | Separation model to use: `2stems`, `4stems`, `5stems` |
+| file  | File   | Audio file to process                           |
 
-**Response Example:**
-```json
-{
-  "vocals": "http://localhost:8000/separated/track/vocals.wav",
-  "drums": "http://localhost:8000/separated/track/drums.wav",
-  "bass": "http://localhost:8000/separated/track/bass.wav",
-  "other": "http://localhost:8000/separated/track/other.wav",
-  "lyrics": "Transcribed lyrics generated by Whisper..."
-}
-```
+**GET `/status/{task_id}`**
+Checks the status/progress of the separation task.
+
+**GET `/download/{task_id}/{stem}`**
+Downloads the completed stem (valid stems: `vocals`, `accompaniment`).
 
 ---
 
