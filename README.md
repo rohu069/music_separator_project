@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="flutter_app_folder/assets/images/app_icon.png" width="128" />
+</p>
+
 # 🎵 Retro Music Player & AI Separator
 
 Welcome to the **Retro Music Player & AI Separator**! This is a full-stack project that marries a nostalgic, iPod-classic-inspired music player interface with cutting-edge AI technologies for audio separation.
